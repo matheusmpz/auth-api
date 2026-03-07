@@ -12,6 +12,7 @@ CREATE TABLE users (
     password VARCHAR(255) NOT NULL,
     is_active BOOLEAN DEFAULT false,
     is_blocked BOOLEAN DEFAULT false,
+    activation_code VARCHAR(6),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

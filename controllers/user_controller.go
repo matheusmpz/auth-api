@@ -110,6 +110,69 @@ func (ctrl *UserController) Register(ctx *gin.Context) {
 }
 
 func (ctrl *UserController) Login(ctx *gin.Context) {
+    var user models.LoginInput
+    
+    if err := ctx.ShouldBindJSON(&user); err != nil {
+        ctx.JSON(http.StatusBadRequest, gin.H{"error": "Credenciais inválidas"})
+        return
+    }
+
+    // Limpa email 
+    cleanEmail := strings.ToLower(strings.TrimSpace(user.Email))
+
+    //Busca usuário no banco
+    var userID int
+    var userName string
+    var userEmail string
+    var storedPassword string
+    var isActive bool
+    var isBlocked bool
+
+    err := ctrl.DB.QueryRow(
+		` SELECT id, name, email, password, is_active, is_blocked
+          FROM users 
+          WHERE email = $1`, 
+		cleanEmail,
+	).Scan(&userID, &userName, &userEmail, &storedPassword, &isActive, &isBlocked)
+
+    if err != nil {
+        if err == sql.ErrNoRows {
+            ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Credenciais inválidas"})
+        } else {
+            log.Println("Erro ao buscar usuário:", err)
+            ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Erro no servidor"})
+        }
+        return
+    }
+
+    // Valida senha 
+    err = bcrypt.CompareHashAndPassword([]byte(storedPassword), []byte(user.Password))
+    if err != nil {
+        ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Credenciais inválidas"})
+        return
+    }
+
+    // Valida se está bloqueado
+    if isBlocked {
+        ctx.JSON(http.StatusForbidden, gin.H{"error": "Conta bloqueada. Entre em contato com o suporte."})
+        return
+    }
+
+    // Valida se está ativo
+    if !isActive {
+        ctx.JSON(http.StatusForbidden, gin.H{"error": "Conta não ativada. Verifique seu email."})
+        return
+    }
+
+    // Retorna dados do usuário
+    ctx.JSON(http.StatusOK, gin.H{
+        "message": "Login realizado com sucesso",
+        "user": gin.H{
+            "id":    userID,
+            "name":  userName,
+            "email": userEmail,
+        },
+    })
 }
 
 func (ctrl *UserController) Activate(ctx *gin.Context) {
@@ -133,7 +196,7 @@ func (ctrl *UserController) Activate(ctx *gin.Context) {
         SELECT id, activation_code, is_active 
         FROM users 
         WHERE email = $1
-    `, cleanEmail).Scan(&userID, &activationCode, &isActive)
+    `, cleanEmail,).Scan(&userID, &activationCode, &isActive)
 
     if err != nil {
         if err == sql.ErrNoRows {

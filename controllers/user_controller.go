@@ -113,6 +113,70 @@ func (ctrl *UserController) Login(ctx *gin.Context) {
 }
 
 func (ctrl *UserController) Activate(ctx *gin.Context) {
+	var user models.ActivateInput
+
+	// Validação de formato do email e código
+	if err := ctx.ShouldBindJSON(&user); err != nil {
+        ctx.JSON(http.StatusBadRequest, gin.H{"error": "Dados inválidos"})
+        return
+    }
+
+    cleanEmail := strings.ToLower(strings.TrimSpace(user.Email))
+    cleanCode := strings.TrimSpace(user.Code)
+
+	// Fazendo a busca pelo código e se está ativo
+	var activationCode sql.NullString
+    var isActive bool
+    var userID int
+
+    err := ctrl.DB.QueryRow(`
+        SELECT id, activation_code, is_active 
+        FROM users 
+        WHERE email = $1
+    `, cleanEmail).Scan(&userID, &activationCode, &isActive)
+
+    if err != nil {
+        if err == sql.ErrNoRows {
+            ctx.JSON(http.StatusUnauthorized, gin.H{"error": "E-mail ou código incorretos"})
+        } else {
+            log.Println("Erro ao buscar usuário:", err)
+            ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Erro no servidor"})
+        }
+        return
+    }
+
+	// Valida se já está ativo
+    if isActive {
+        ctx.JSON(http.StatusBadRequest, gin.H{"error": "Conta já está ativada"})
+        return
+    }
+
+    // Valida se código existe (não é NULL)
+    if !activationCode.Valid {
+        ctx.JSON(http.StatusBadRequest, gin.H{"error": "Código de ativação não encontrado"})
+        return
+    }
+
+    // Compara códigos
+    if activationCode.String != cleanCode {
+        ctx.JSON(http.StatusUnauthorized, gin.H{"error": "E-mail ou código incorretos"})
+        return
+    }
+
+    // Ativa a conta (UPDATE)
+    _, err = ctrl.DB.Exec(`
+        UPDATE users 
+        SET is_active = true, activation_code = NULL
+        WHERE id = $1
+    `, userID)
+
+    if err != nil {
+        log.Println("Erro ao ativar conta:", err)
+        ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao ativar conta"})
+        return
+    }
+
+    ctx.JSON(http.StatusOK, gin.H{"message": "Conta ativada com sucesso!"})
 }
 
 func (ctrl *UserController) GetUser(ctx *gin.Context) {

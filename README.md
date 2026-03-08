@@ -40,4 +40,21 @@ go run cmd/api/main.go
 
 ## 🧪 Endpoints
 
-Em desenvolvimento...
+### Rotas Públicas (sem autenticação)
+
+| Método | Endpoint | Descrição | Body |
+|--------|----------|-----------|------|
+| POST | `/register` | Cadastra novo usuário | `{name, email, password}` |
+| POST | `/login` | Autentica usuário e retorna JWT | `{email, password}` |
+| POST | `/activate` | Ativa conta com código | `{email, code}` |
+
+### Rotas Protegidas (requer JWT no header)
+
+| Método | Endpoint | Descrição | Header |
+|--------|----------|-----------|--------|
+| GET | `/users/:id` | Busca usuário por ID | `Authorization: Bearer <token>` |
+| PUT | `/users/:id` | Atualiza dados do usuário | `Authorization: Bearer <token>` |
+| DELETE | `/users/:id` | Deleta usuário | `Authorization: Bearer <token>` |
+| PATCH | `/users/:id/activate` | Ativa conta manualmente | `Authorization: Bearer <token>` |
+| PATCH | `/users/:id/block` | Bloqueia conta | `Authorization: Bearer <token>` |
+| PATCH | `/users/:id/unblock` | Desbloqueia conta | `Authorization: Bearer <token>` |

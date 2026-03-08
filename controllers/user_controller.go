@@ -164,11 +164,17 @@ func (ctrl *UserController) Login(ctx *gin.Context) {
         return
     }
 
+    token, err := utils.GenerateToken(userID, userEmail)
+    if err != nil {
+	ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao gerar token"})
+	return
+}
+
     // Retorna dados do usuário
     ctx.JSON(http.StatusOK, gin.H{
         "message": "Login realizado com sucesso",
+        "token" : token,
         "user": gin.H{
-            "id":    userID,
             "name":  userName,
             "email": userEmail,
         },
@@ -243,6 +249,40 @@ func (ctrl *UserController) Activate(ctx *gin.Context) {
 }
 
 func (ctrl *UserController) GetUser(ctx *gin.Context) {
+	id := ctx.Param("id")
+
+	var user models.UserResponse
+
+	err := ctrl.DB.QueryRow(
+		`SELECT id, name, email, is_active, is_blocked
+		 FROM users
+		 WHERE id = $1`,
+		id,
+	).Scan(
+		&user.ID,
+		&user.Name,
+		&user.Email,
+		&user.Active,
+		&user.Blocked,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusNotFound, gin.H{
+				"error": "Usuário não encontrado",
+			})
+		} else {
+			log.Println("Erro ao buscar usuário:", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Erro no servidor",
+			})
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"user": user,
+	})
 }
 
 func (ctrl *UserController) UpdateUser(ctx *gin.Context) {

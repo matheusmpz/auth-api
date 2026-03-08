@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/matheusmpz/auth-api/controllers"
 	"github.com/matheusmpz/auth-api/db"
+	"github.com/matheusmpz/auth-api/middlewares"
 )
 
 func main() {
@@ -29,13 +30,16 @@ func main() {
 	router.POST("/login", userCtrl.Login)
 	router.POST("/activate", userCtrl.Activate)
 
-    router.GET("/users/:id", userCtrl.GetUser)
-	router.PUT("/users/:id", userCtrl.UpdateUser)
-	router.DELETE("/users/:id", userCtrl.DeleteUser)
-
-    router.PATCH("/users/:id/activate", userCtrl.ActivateUser)
-	router.PATCH("/users/:id/block", userCtrl.BlockUser)
-	router.PATCH("/users/:id/unblock", userCtrl.UnblockUser)
+    auth := router.Group("/")
+    auth.Use(middlewares.AuthMiddleware())
+    {
+        auth.GET("/users/:id", userCtrl.GetUser)
+        auth.PUT("/users/:id", userCtrl.UpdateUser)
+        auth.DELETE("/users/:id", userCtrl.DeleteUser)
+        auth.PATCH("/users/:id/activate", userCtrl.ActivateUser)
+        auth.PATCH("/users/:id/block", userCtrl.BlockUser)
+        auth.PATCH("/users/:id/unblock", userCtrl.UnblockUser)
+    }
 
     // tudo que vier depois disso não é executado, por isso ele fica no final
     router.Run(":8080")
